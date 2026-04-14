@@ -14,7 +14,15 @@ import {
   initialTeams,
   initialTournaments,
 } from "./data";
-import { Achievement, Match, Player, TabKey, Team, Tournament } from "./types";
+import {
+  Achievement,
+  Match,
+  Player,
+  TabKey,
+  Team,
+  Tournament,
+  Transfer,
+} from "./types";
 import {
   getNextId,
   parseList,
@@ -345,30 +353,47 @@ export default function App() {
     event.target.value = "";
   };
 
+  const updatePlayersState = (updater: (prev: Player[]) => Player[]) => {
+    setPlayers((prev) => {
+      const nextPlayers = updater(prev);
+      setTeams((prevTeams) => syncTeamPlayers(nextPlayers, prevTeams));
+      return nextPlayers;
+    });
+  };
+
+  const sortTransfersNewestFirst = (transfers: Transfer[]) => {
+    return [...transfers].sort((a, b) => {
+      const aTime = new Date(a.date || 0).getTime();
+      const bTime = new Date(b.date || 0).getTime();
+
+      if (bTime !== aTime) return bTime - aTime;
+      return b.id - a.id;
+    });
+  };
+
   const savePlayer = () => {
     if (!selectedPlayer) return;
 
-    const nextPlayers = players.map((player) =>
-      player.id === selectedPlayer.id
-        ? {
-            ...player,
-            nickname: playerForm.nickname,
-            fullName: playerForm.fullName,
-            teamId: Number(playerForm.teamId),
-            games: parseList(playerForm.games),
-            wins: Number(playerForm.wins),
-            losses: Number(playerForm.losses),
-            earnings: Number(playerForm.earnings),
-            tournamentsWon: Number(playerForm.tournamentsWon),
-            rank: Number(playerForm.rank),
-            elo: Number(playerForm.elo),
-            bio: playerForm.bio,
-          }
-        : player
+    updatePlayersState((prev) =>
+      prev.map((player) =>
+        player.id === selectedPlayer.id
+          ? {
+              ...player,
+              nickname: playerForm.nickname,
+              fullName: playerForm.fullName,
+              teamId: Number(playerForm.teamId),
+              games: parseList(playerForm.games),
+              wins: Number(playerForm.wins),
+              losses: Number(playerForm.losses),
+              earnings: Number(playerForm.earnings),
+              tournamentsWon: Number(playerForm.tournamentsWon),
+              rank: Number(playerForm.rank),
+              elo: Number(playerForm.elo),
+              bio: playerForm.bio,
+            }
+          : player
+      )
     );
-
-    setPlayers(nextPlayers);
-    setTeams((prev) => syncTeamPlayers(nextPlayers, prev));
   };
 
   const addPlayer = () => {
@@ -386,13 +411,90 @@ export default function App() {
       rank: players.length + 1,
       elo: 1000,
       bio: "",
+      transferHistory: [],
     };
 
     const nextPlayers = [...players, newPlayer];
-    setPlayers(nextPlayers);
-    setTeams((prev) => syncTeamPlayers(nextPlayers, prev));
+    updatePlayersState(() => nextPlayers);
     setSelectedPlayerId(newPlayer.id);
     setPlayerForm(createEmptyPlayerForm(nextPlayers.length + 1));
+  };
+
+  const updatePlayerTransfer = (
+    playerId: number,
+    transferId: number,
+    updates: Partial<Transfer>
+  ) => {
+    updatePlayersState((prev) =>
+      prev.map((player) => {
+        if (player.id !== playerId) return player;
+
+        const currentTransfers = player.transferHistory ?? [];
+
+        const nextTransfers = currentTransfers.map((transfer) => {
+          if (transfer.id !== transferId) return transfer;
+          return { ...transfer, ...updates };
+        });
+
+        const updatedTransfer = nextTransfers.find(
+          (transfer) => transfer.id === transferId
+        );
+
+        const nextTeamId =
+          updatedTransfer && typeof updatedTransfer.toTeamId === "number"
+            ? updatedTransfer.toTeamId
+            : player.teamId;
+
+        return {
+          ...player,
+          teamId: nextTeamId,
+          transferHistory: sortTransfersNewestFirst(nextTransfers),
+        };
+      })
+    );
+  };
+
+  const addPlayerTransfer = (playerId: number) => {
+    updatePlayersState((prev) =>
+      prev.map((player) => {
+        if (player.id !== playerId) return player;
+
+        const currentTransfers = player.transferHistory ?? [];
+
+        const newTransfer: Transfer = {
+          id: Date.now(),
+          fromTeamId: player.teamId || null,
+          toTeamId: player.teamId || 0,
+          date: new Date().toISOString().slice(0, 10),
+          note: "",
+        };
+
+        return {
+          ...player,
+          transferHistory: sortTransfersNewestFirst([
+            ...currentTransfers,
+            newTransfer,
+          ]),
+        };
+      })
+    );
+  };
+
+  const deletePlayerTransfer = (playerId: number, transferId: number) => {
+    updatePlayersState((prev) =>
+      prev.map((player) => {
+        if (player.id !== playerId) return player;
+
+        const currentTransfers = player.transferHistory ?? [];
+
+        return {
+          ...player,
+          transferHistory: sortTransfersNewestFirst(
+            currentTransfers.filter((transfer) => transfer.id !== transferId)
+          ),
+        };
+      })
+    );
   };
 
   const deletePlayer = () => {
@@ -663,7 +765,7 @@ export default function App() {
               {showAdminLogin ? (
                 <div className="admin-login-box">
                   <div className="admin-login-hint">
-                    Secret shortcut: Ctrl + Shift + A
+                    Secret shortcut: Ctrl + Shift + L
                   </div>
 
                   <input
@@ -804,6 +906,9 @@ export default function App() {
             saveAchievement={saveAchievement}
             addAchievement={addAchievement}
             deleteAchievement={deleteAchievement}
+            updatePlayerTransfer={updatePlayerTransfer}
+            addPlayerTransfer={addPlayerTransfer}
+            deletePlayerTransfer={deletePlayerTransfer}
           />
         )}
       </div>

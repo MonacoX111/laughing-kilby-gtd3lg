@@ -1,5 +1,12 @@
 import { ChangeEvent } from "react";
-import { Achievement, Match, Player, Team, Tournament } from "../types";
+import {
+  Achievement,
+  Match,
+  Player,
+  Team,
+  Tournament,
+  Transfer,
+} from "../types";
 import { gamesList } from "../data";
 import { parseList } from "../utils";
 
@@ -97,6 +104,14 @@ type Props = {
   saveAchievement: (id: number, updates: Partial<Achievement>) => void;
   addAchievement: () => void;
   deleteAchievement: (id: number) => void;
+
+  updatePlayerTransfer: (
+    playerId: number,
+    transferId: number,
+    updates: Partial<Transfer>
+  ) => void;
+  addPlayerTransfer: (playerId: number) => void;
+  deletePlayerTransfer: (playerId: number, transferId: number) => void;
 };
 
 function MultiGamePicker({
@@ -173,6 +188,9 @@ export default function AdminTab({
   saveAchievement,
   addAchievement,
   deleteAchievement,
+  updatePlayerTransfer,
+  addPlayerTransfer,
+  deletePlayerTransfer,
 }: Props) {
   const getPlayerName = (playerId: number) =>
     players.find((player) => player.id === playerId)?.nickname || "Unknown";
@@ -180,6 +198,24 @@ export default function AdminTab({
   const getTournamentName = (tournamentId: number) =>
     tournaments.find((tournament) => tournament.id === tournamentId)?.title ||
     "No tournament";
+
+  const getTeamName = (teamId: number | null) => {
+    if (teamId === null || teamId === 0) return "Free agent";
+    return teams.find((team) => team.id === teamId)?.name || "Unknown team";
+  };
+
+  const selectedPlayer =
+    players.find((player) => player.id === selectedPlayerId) || null;
+
+  const selectedPlayerTransfers = [
+    ...(selectedPlayer?.transferHistory ?? []),
+  ].sort((a, b) => {
+    const aTime = new Date(a.date || 0).getTime();
+    const bTime = new Date(b.date || 0).getTime();
+
+    if (bTime !== aTime) return bTime - aTime;
+    return b.id - a.id;
+  });
 
   return (
     <div className="admin-wrap">
@@ -381,6 +417,138 @@ export default function AdminTab({
               <button className="danger-btn" onClick={deletePlayer}>
                 Delete
               </button>
+            </div>
+
+            <div className="section-block">
+              <h4>Transfer history</h4>
+
+              {selectedPlayerTransfers.length === 0 ? (
+                <p className="muted">Немає історії трансферів.</p>
+              ) : (
+                <div className="list-col">
+                  {selectedPlayerTransfers.map((transfer) => (
+                    <div key={transfer.id} className="simple-card">
+                      <div className="form-grid two">
+                        <div className="field-block">
+                          <label className="field-label">From</label>
+                          <select
+                            className="input"
+                            value={transfer.fromTeamId ?? 0}
+                            onChange={(e) =>
+                              updatePlayerTransfer(
+                                selectedPlayerId,
+                                transfer.id,
+                                {
+                                  fromTeamId:
+                                    Number(e.target.value) === 0
+                                      ? null
+                                      : Number(e.target.value),
+                                }
+                              )
+                            }
+                          >
+                            <option value={0}>Free agent</option>
+                            {teams.map((team) => (
+                              <option key={team.id} value={team.id}>
+                                {team.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="field-block">
+                          <label className="field-label">To</label>
+                          <select
+                            className="input"
+                            value={transfer.toTeamId}
+                            onChange={(e) =>
+                              updatePlayerTransfer(
+                                selectedPlayerId,
+                                transfer.id,
+                                {
+                                  toTeamId: Number(e.target.value),
+                                }
+                              )
+                            }
+                          >
+                            <option value={0}>Free agent</option>
+                            {teams.map((team) => (
+                              <option key={team.id} value={team.id}>
+                                {team.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="field-block">
+                          <label className="field-label">Date</label>
+                          <input
+                            className="input"
+                            type="date"
+                            value={transfer.date}
+                            onChange={(e) =>
+                              updatePlayerTransfer(
+                                selectedPlayerId,
+                                transfer.id,
+                                {
+                                  date: e.target.value,
+                                }
+                              )
+                            }
+                          />
+                        </div>
+
+                        <div className="field-block">
+                          <label className="field-label">Note</label>
+                          <input
+                            className="input"
+                            value={transfer.note || ""}
+                            onChange={(e) =>
+                              updatePlayerTransfer(
+                                selectedPlayerId,
+                                transfer.id,
+                                {
+                                  note: e.target.value,
+                                }
+                              )
+                            }
+                            placeholder="Transfer note"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="transfer-admin-preview">
+                        <span className="muted small">
+                          {getTeamName(transfer.fromTeamId)} →{" "}
+                          {getTeamName(transfer.toTeamId)}
+                        </span>
+                      </div>
+
+                      <div className="btn-row">
+                        <button
+                          className="danger-btn"
+                          onClick={() =>
+                            deletePlayerTransfer(selectedPlayerId, transfer.id)
+                          }
+                        >
+                          Delete transfer
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {selectedPlayer ? (
+                <div className="btn-row">
+                  <button
+                    className="secondary-btn"
+                    onClick={() => addPlayerTransfer(selectedPlayerId)}
+                  >
+                    + Add transfer
+                  </button>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

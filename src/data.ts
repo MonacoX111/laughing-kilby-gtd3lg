@@ -56,6 +56,15 @@ export const initialPlayers: Player[] = [
     rank: 1,
     elo: 1245,
     bio: "Організатор і гравець.",
+    transferHistory: [
+      {
+        id: 1,
+        fromTeamId: null,
+        toTeamId: 1,
+        date: "2026-01-10",
+        note: "Приєднався до основного складу Sansara LDC.",
+      },
+    ],
   },
   {
     id: 2,
@@ -71,6 +80,15 @@ export const initialPlayers: Player[] = [
     rank: 2,
     elo: 1160,
     bio: "Стабільно виходить у плей-оф.",
+    transferHistory: [
+      {
+        id: 1,
+        fromTeamId: null,
+        toTeamId: 1,
+        date: "2026-02-01",
+        note: "Підписаний перед стартом сезону.",
+      },
+    ],
   },
   {
     id: 3,
@@ -86,6 +104,15 @@ export const initialPlayers: Player[] = [
     rank: 3,
     elo: 1085,
     bio: "Любить мікс-турніри.",
+    transferHistory: [
+      {
+        id: 1,
+        fromTeamId: null,
+        toTeamId: 2,
+        date: "2026-01-18",
+        note: "Приєднався до Monaco Squad як вільний агент.",
+      },
+    ],
   },
 ];
 

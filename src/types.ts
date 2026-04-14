@@ -14,6 +14,15 @@ export type Team = {
   description: string;
 };
 
+// 🔥 NEW: Transfer
+export type Transfer = {
+  id: number;
+  fromTeamId: number | null; // null = free agent
+  toTeamId: number;
+  date: string;
+  note?: string;
+};
+
 export type Player = {
   id: number;
   nickname: string;
@@ -28,6 +37,9 @@ export type Player = {
   rank: number;
   elo: number;
   bio: string;
+
+  // 🔥 NEW
+  transferHistory: Transfer[];
 };
 
 export type Tournament = {

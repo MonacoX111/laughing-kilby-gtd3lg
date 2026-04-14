@@ -38,8 +38,10 @@ export default function PlayersTab({
   setSortMode,
   gamesList,
 }: Props) {
-  const getTeamName = (teamId: number) =>
-    teams.find((t) => t.id === teamId)?.name || "";
+  const getTeamName = (teamId: number | null) => {
+    if (teamId === null || teamId === 0) return "Free agent";
+    return teams.find((t) => t.id === teamId)?.name || "Unknown team";
+  };
 
   const getPlayerName = (playerId: number) =>
     players.find((p) => p.id === playerId)?.nickname || "Unknown";
@@ -102,6 +104,16 @@ export default function PlayersTab({
     isWinner: boolean;
     isMvp: boolean;
   })[];
+
+  const playerTransferHistory = selectedPlayer
+    ? [...(selectedPlayer.transferHistory ?? [])].sort((a, b) => {
+        const aTime = new Date(a.date || 0).getTime();
+        const bTime = new Date(b.date || 0).getTime();
+
+        if (bTime !== aTime) return bTime - aTime;
+        return b.id - a.id;
+      })
+    : [];
 
   return (
     <>
@@ -184,9 +196,7 @@ export default function PlayersTab({
                   <div className="player-info-box">
                     <div className="player-info-row">
                       <span className="info-label">Team</span>
-                      <span className="info-value">
-                        {teamName || "Без команди"}
-                      </span>
+                      <span className="info-value">{teamName}</span>
                     </div>
 
                     <div className="player-info-row column">
@@ -236,7 +246,7 @@ export default function PlayersTab({
                   <div className="profile-info-row">
                     <span className="info-label">Team</span>
                     <span className="info-value">
-                      {getTeamName(selectedPlayer.teamId) || "Без команди"}
+                      {getTeamName(selectedPlayer.teamId)}
                     </span>
                   </div>
 
@@ -295,6 +305,54 @@ export default function PlayersTab({
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+
+            <div className="section-block">
+              <h4>Transfer history</h4>
+
+              {playerTransferHistory.length === 0 ? (
+                <p className="muted">Немає історії трансферів.</p>
+              ) : (
+                <div className="list-col transfer-history-list">
+                  {playerTransferHistory.map((transfer) => {
+                    const fromTeamName = getTeamName(transfer.fromTeamId);
+                    const toTeamName = getTeamName(transfer.toTeamId);
+
+                    return (
+                      <div
+                        key={transfer.id}
+                        className="simple-card transfer-card"
+                      >
+                        <div className="transfer-top">
+                          <div className="transfer-main">
+                            <div className="transfer-line">
+                              <span className="transfer-team from">
+                                {fromTeamName}
+                              </span>
+                              <span className="transfer-arrow">→</span>
+                              <span className="transfer-team to">
+                                {toTeamName}
+                              </span>
+                            </div>
+
+                            <div className="transfer-date">{transfer.date}</div>
+
+                            {transfer.note ? (
+                              <div className="transfer-note">
+                                {transfer.note}
+                              </div>
+                            ) : null}
+                          </div>
+
+                          <div className="tag-row transfer-tags">
+                            <span className="pill">Transfer</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
