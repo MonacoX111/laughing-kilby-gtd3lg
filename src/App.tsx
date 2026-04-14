@@ -5,15 +5,7 @@ import TournamentsTab from "./components/TournamentsTab";
 import LeaderboardTab from "./components/LeaderboardTab";
 import AdminTab from "./components/AdminTab";
 import "./styles.css";
-import {
-  achievementPlaceholder,
-  gamesList,
-  initialAchievements,
-  initialMatches,
-  initialPlayers,
-  initialTeams,
-  initialTournaments,
-} from "./data";
+import { achievementPlaceholder, gamesList, initialPlayers } from "./data";
 import {
   Achievement,
   Match,
@@ -23,14 +15,8 @@ import {
   Tournament,
   Transfer,
 } from "./types";
-import {
-  getNextId,
-  parseList,
-  readStorage,
-  syncTeamPlayers,
-  writeStorage,
-} from "./utils";
-import { subscribeCollection } from "./firebaseDb";
+import { getNextId, parseList, syncTeamPlayers } from "./utils";
+import { deleteItem, saveItem, subscribeCollection } from "./firebaseDb";
 import StatCard from "./components/StatCard";
 
 type PlayerForm = {
@@ -146,7 +132,9 @@ export default function App() {
   );
   const [matchForm, setMatchForm] = useState<MatchForm>(createEmptyMatchForm());
 
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
+    return localStorage.getItem(ADMIN_STORAGE_KEY) === "true";
+  });
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminPassword, setAdminPassword] = useState("");
   const [adminError, setAdminError] = useState("");
@@ -192,15 +180,6 @@ export default function App() {
       unsubAchievements();
     };
   }, []);
-
-  useEffect(() => writeStorage("tm_players", players), [players]);
-  useEffect(() => writeStorage("tm_teams", teams), [teams]);
-  useEffect(() => writeStorage("tm_tournaments", tournaments), [tournaments]);
-  useEffect(() => writeStorage("tm_matches", matches), [matches]);
-  useEffect(
-    () => writeStorage("tm_achievements", achievements),
-    [achievements]
-  );
 
   useEffect(() => {
     localStorage.setItem(ADMIN_STORAGE_KEY, String(isAdmin));
@@ -326,52 +305,23 @@ export default function App() {
     });
   }, [selectedMatchId, selectedMatch]);
 
-  const handlePlayerAvatarUpload = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !selectedPlayer) return;
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = typeof reader.result === "string" ? reader.result : "";
-      if (!result) return;
-
-      setPlayers((prev) =>
-        prev.map((player) =>
-          player.id === selectedPlayer.id
-            ? { ...player, avatar: result }
-            : player
-        )
-      );
-    };
-    reader.readAsDataURL(file);
-    event.target.value = "";
+  const persistTeams = async (nextTeams: Team[]) => {
+    await Promise.all(nextTeams.map((team) => saveItem<Team>("teams", team)));
   };
 
-  const handleTeamLogoUpload = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !selectedTeam) return;
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = typeof reader.result === "string" ? reader.result : "";
-      if (!result) return;
-
-      setTeams((prev) =>
-        prev.map((team) =>
-          team.id === selectedTeam.id ? { ...team, logo: result } : team
-        )
-      );
-    };
-    reader.readAsDataURL(file);
-    event.target.value = "";
+  const persistPlayers = async (nextPlayers: Player[]) => {
+    await Promise.all(
+      nextPlayers.map((player) => saveItem<Player>("players", player))
+    );
   };
 
-  const updatePlayersState = (updater: (prev: Player[]) => Player[]) => {
-    setPlayers((prev) => {
-      const nextPlayers = updater(prev);
-      setTeams((prevTeams) => syncTeamPlayers(nextPlayers, prevTeams));
-      return nextPlayers;
-    });
+  const updatePlayersAndTeams = async (
+    updater: (prevPlayers: Player[]) => Player[]
+  ) => {
+    const nextPlayers = updater(players);
+    const nextTeams = syncTeamPlayers(nextPlayers, teams);
+
+    await Promise.all([persistPlayers(nextPlayers), persistTeams(nextTeams)]);
   };
 
   const sortTransfersNewestFirst = (transfers: Transfer[]) => {
@@ -384,32 +334,72 @@ export default function App() {
     });
   };
 
-  const savePlayer = () => {
-    if (!selectedPlayer) return;
+  const handlePlayerAvatarUpload = async (
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file || !selectedPlayer) return;
 
-    updatePlayersState((prev) =>
-      prev.map((player) =>
-        player.id === selectedPlayer.id
-          ? {
-              ...player,
-              nickname: playerForm.nickname,
-              fullName: playerForm.fullName,
-              teamId: Number(playerForm.teamId),
-              games: parseList(playerForm.games),
-              wins: Number(playerForm.wins),
-              losses: Number(playerForm.losses),
-              earnings: Number(playerForm.earnings),
-              tournamentsWon: Number(playerForm.tournamentsWon),
-              rank: Number(playerForm.rank),
-              elo: Number(playerForm.elo),
-              bio: playerForm.bio,
-            }
-          : player
-      )
-    );
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      if (!result) return;
+
+      await saveItem<Player>("players", {
+        ...selectedPlayer,
+        avatar: result,
+      });
+    };
+    reader.readAsDataURL(file);
+    event.target.value = "";
   };
 
-  const addPlayer = () => {
+  const handleTeamLogoUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !selectedTeam) return;
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      if (!result) return;
+
+      await saveItem<Team>("teams", {
+        ...selectedTeam,
+        logo: result,
+      });
+    };
+    reader.readAsDataURL(file);
+    event.target.value = "";
+  };
+
+  const savePlayer = async () => {
+    if (!selectedPlayer) return;
+
+    const nextPlayers = players.map((player) =>
+      player.id === selectedPlayer.id
+        ? {
+            ...player,
+            nickname: playerForm.nickname,
+            fullName: playerForm.fullName,
+            teamId: Number(playerForm.teamId),
+            games: parseList(playerForm.games),
+            wins: Number(playerForm.wins),
+            losses: Number(playerForm.losses),
+            earnings: Number(playerForm.earnings),
+            tournamentsWon: Number(playerForm.tournamentsWon),
+            rank: Number(playerForm.rank),
+            elo: Number(playerForm.elo),
+            bio: playerForm.bio,
+          }
+        : player
+    );
+
+    const nextTeams = syncTeamPlayers(nextPlayers, teams);
+
+    await Promise.all([persistPlayers(nextPlayers), persistTeams(nextTeams)]);
+  };
+
+  const addPlayer = async () => {
     const newPlayer: Player = {
       id: getNextId(players),
       nickname: "",
@@ -427,26 +417,23 @@ export default function App() {
       transferHistory: [],
     };
 
-    const nextPlayers = [...players, newPlayer];
-    updatePlayersState(() => nextPlayers);
+    await saveItem<Player>("players", newPlayer);
     setSelectedPlayerId(newPlayer.id);
-    setPlayerForm(createEmptyPlayerForm(nextPlayers.length + 1));
+    setPlayerForm(createEmptyPlayerForm(players.length + 2));
   };
 
-  const updatePlayerTransfer = (
+  const updatePlayerTransfer = async (
     playerId: number,
     transferId: number,
     updates: Partial<Transfer>
   ) => {
-    updatePlayersState((prev) =>
+    await updatePlayersAndTeams((prev) =>
       prev.map((player) => {
         if (player.id !== playerId) return player;
 
         const currentTransfers = player.transferHistory ?? [];
-
         const nextTransfers = currentTransfers.map((transfer) => {
           if (transfer.id !== transferId) return transfer;
-
           return { ...transfer, ...updates };
         });
 
@@ -468,8 +455,8 @@ export default function App() {
     );
   };
 
-  const addPlayerTransfer = (playerId: number) => {
-    updatePlayersState((prev) =>
+  const addPlayerTransfer = async (playerId: number) => {
+    await updatePlayersAndTeams((prev) =>
       prev.map((player) => {
         if (player.id !== playerId) return player;
 
@@ -497,8 +484,8 @@ export default function App() {
     );
   };
 
-  const deletePlayerTransfer = (playerId: number, transferId: number) => {
-    updatePlayersState((prev) =>
+  const deletePlayerTransfer = async (playerId: number, transferId: number) => {
+    await updatePlayersAndTeams((prev) =>
       prev.map((player) => {
         if (player.id !== playerId) return player;
 
@@ -514,57 +501,66 @@ export default function App() {
     );
   };
 
-  const deletePlayer = () => {
+  const deletePlayer = async () => {
     if (!selectedPlayer) return;
 
     const deletedId = selectedPlayer.id;
-    const nextPlayers = players.filter((player) => player.id !== deletedId);
 
-    setPlayers(nextPlayers);
-    setTeams((prev) => syncTeamPlayers(nextPlayers, prev));
-    setMatches((prev) =>
-      prev.filter(
-        (match) => match.player1 !== deletedId && match.player2 !== deletedId
+    await deleteItem("players", deletedId);
+
+    const deletedMatches = matches.filter(
+      (match) => match.player1 === deletedId || match.player2 === deletedId
+    );
+
+    await Promise.all(
+      deletedMatches.map((match) => deleteItem("matches", match.id))
+    );
+
+    const nextAchievements = achievements.map((achievement) => ({
+      ...achievement,
+      playerIds: achievement.playerIds.filter((id) => id !== deletedId),
+    }));
+
+    await Promise.all(
+      nextAchievements.map((achievement) =>
+        saveItem<Achievement>("achievements", achievement)
       )
     );
-    setAchievements((prev) =>
-      prev.map((achievement) => ({
-        ...achievement,
-        playerIds: achievement.playerIds.filter((id) => id !== deletedId),
-      }))
+
+    const nextTournaments = tournaments.map((tournament) => ({
+      ...tournament,
+      winnerId: tournament.winnerId === deletedId ? 0 : tournament.winnerId,
+      mvpId: tournament.mvpId === deletedId ? 0 : tournament.mvpId,
+      placements: tournament.placements.filter(
+        (item) => item.playerId !== deletedId
+      ),
+    }));
+
+    await Promise.all(
+      nextTournaments.map((tournament) =>
+        saveItem<Tournament>("tournaments", tournament)
+      )
     );
-    setTournaments((prev) =>
-      prev.map((tournament) => ({
-        ...tournament,
-        winnerId: tournament.winnerId === deletedId ? 0 : tournament.winnerId,
-        mvpId: tournament.mvpId === deletedId ? 0 : tournament.mvpId,
-        placements: tournament.placements.filter(
-          (item) => item.playerId !== deletedId
-        ),
-      }))
-    );
+
+    const nextPlayers = players.filter((player) => player.id !== deletedId);
+    const nextTeams = syncTeamPlayers(nextPlayers, teams);
+    await persistTeams(nextTeams);
   };
 
-  const saveTeam = () => {
+  const saveTeam = async () => {
     if (!selectedTeam) return;
 
-    setTeams((prev) =>
-      prev.map((team) =>
-        team.id === selectedTeam.id
-          ? {
-              ...team,
-              name: teamForm.name,
-              games: parseList(teamForm.games),
-              wins: Number(teamForm.wins),
-              earnings: Number(teamForm.earnings),
-              description: teamForm.description,
-            }
-          : team
-      )
-    );
+    await saveItem<Team>("teams", {
+      ...selectedTeam,
+      name: teamForm.name,
+      games: parseList(teamForm.games),
+      wins: Number(teamForm.wins),
+      earnings: Number(teamForm.earnings),
+      description: teamForm.description,
+    });
   };
 
-  const addTeam = () => {
+  const addTeam = async () => {
     const newTeam: Team = {
       id: getNextId(teams),
       name: "",
@@ -576,45 +572,42 @@ export default function App() {
       description: "",
     };
 
-    setTeams((prev) => [...prev, newTeam]);
+    await saveItem<Team>("teams", newTeam);
     setSelectedTeamId(newTeam.id);
     setTeamForm(createEmptyTeamForm());
   };
 
-  const deleteTeam = () => {
+  const deleteTeam = async () => {
     if (!selectedTeam) return;
 
     const deletedId = selectedTeam.id;
-    const nextTeams = teams.filter((team) => team.id !== deletedId);
-
-    setTeams(nextTeams);
-    setPlayers((prev) =>
-      prev.map((player) =>
-        player.teamId === deletedId ? { ...player, teamId: 0 } : player
-      )
+    const nextPlayers = players.map((player) =>
+      player.teamId === deletedId ? { ...player, teamId: 0 } : player
     );
+    const nextTeams = teams.filter((team) => team.id !== deletedId);
+    const syncedTeams = syncTeamPlayers(nextPlayers, nextTeams);
+
+    await Promise.all([
+      persistPlayers(nextPlayers),
+      persistTeams(syncedTeams),
+      deleteItem("teams", deletedId),
+    ]);
   };
 
-  const saveTournament = () => {
+  const saveTournament = async () => {
     if (!selectedTournament) return;
 
-    setTournaments((prev) =>
-      prev.map((tournament) =>
-        tournament.id === selectedTournament.id
-          ? {
-              ...tournament,
-              title: tournamentForm.title,
-              game: tournamentForm.game,
-              type: tournamentForm.type,
-              date: tournamentForm.date,
-              prize: tournamentForm.prize,
-            }
-          : tournament
-      )
-    );
+    await saveItem<Tournament>("tournaments", {
+      ...selectedTournament,
+      title: tournamentForm.title,
+      game: tournamentForm.game,
+      type: tournamentForm.type,
+      date: tournamentForm.date,
+      prize: tournamentForm.prize,
+    });
   };
 
-  const addTournament = () => {
+  const addTournament = async () => {
     const newTournament: Tournament = {
       id: getNextId(tournaments),
       title: "New Tournament",
@@ -627,7 +620,7 @@ export default function App() {
       placements: [],
     };
 
-    setTournaments((prev) => [...prev, newTournament]);
+    await saveItem<Tournament>("tournaments", newTournament);
     setSelectedTournamentId(newTournament.id);
     setTournamentForm({
       title: newTournament.title,
@@ -638,43 +631,36 @@ export default function App() {
     });
   };
 
-  const deleteTournament = () => {
+  const deleteTournament = async () => {
     if (!selectedTournament) return;
 
     const deletedId = selectedTournament.id;
 
-    setTournaments((prev) =>
-      prev.filter((tournament) => tournament.id !== deletedId)
-    );
-
-    setMatches((prev) =>
-      prev.filter((match) => match.tournamentId !== deletedId)
-    );
+    await Promise.all([
+      deleteItem("tournaments", deletedId),
+      ...matches
+        .filter((match) => match.tournamentId === deletedId)
+        .map((match) => deleteItem("matches", match.id)),
+    ]);
   };
 
-  const saveMatch = () => {
+  const saveMatch = async () => {
     if (!selectedMatch) return;
 
-    setMatches((prev) =>
-      prev.map((match) =>
-        match.id === selectedMatch.id
-          ? {
-              ...match,
-              game: matchForm.game,
-              player1: Number(matchForm.player1),
-              player2: Number(matchForm.player2),
-              score: matchForm.score,
-              winnerId: Number(matchForm.winnerId),
-              tournamentId: Number(matchForm.tournamentId),
-              date: matchForm.date,
-              eloApplied: Boolean(matchForm.eloApplied),
-            }
-          : match
-      )
-    );
+    await saveItem<Match>("matches", {
+      ...selectedMatch,
+      game: matchForm.game,
+      player1: Number(matchForm.player1),
+      player2: Number(matchForm.player2),
+      score: matchForm.score,
+      winnerId: Number(matchForm.winnerId),
+      tournamentId: Number(matchForm.tournamentId),
+      date: matchForm.date,
+      eloApplied: Boolean(matchForm.eloApplied),
+    });
   };
 
-  const addMatch = () => {
+  const addMatch = async () => {
     const newMatch: Match = {
       id: getNextId(matches),
       game: "",
@@ -687,41 +673,32 @@ export default function App() {
       eloApplied: false,
     };
 
-    setMatches((prev) => [...prev, newMatch]);
+    await saveItem<Match>("matches", newMatch);
     setSelectedMatchId(newMatch.id);
-    setMatchForm({
-      game: "",
-      player1: 0,
-      player2: 0,
-      score: "",
-      winnerId: 0,
-      tournamentId: 0,
-      date: "",
-      eloApplied: false,
-    });
+    setMatchForm(createEmptyMatchForm());
   };
 
-  const deleteMatch = () => {
+  const deleteMatch = async () => {
     if (!selectedMatch) return;
-
-    const deletedId = selectedMatch.id;
-    setMatches((prev) => prev.filter((match) => match.id !== deletedId));
+    await deleteItem("matches", selectedMatch.id);
   };
 
-  const saveAchievement = (
+  const saveAchievement = async (
     achievementId: number,
     updates: Partial<Achievement>
   ) => {
-    setAchievements((prev) =>
-      prev.map((achievement) =>
-        achievement.id === achievementId
-          ? { ...achievement, ...updates }
-          : achievement
-      )
+    const currentAchievement = achievements.find(
+      (achievement) => achievement.id === achievementId
     );
+    if (!currentAchievement) return;
+
+    await saveItem<Achievement>("achievements", {
+      ...currentAchievement,
+      ...updates,
+    });
   };
 
-  const addAchievement = () => {
+  const addAchievement = async () => {
     const newAchievement: Achievement = {
       id: getNextId(achievements),
       title: "New Achievement",
@@ -730,13 +707,11 @@ export default function App() {
       playerIds: [],
     };
 
-    setAchievements((prev) => [...prev, newAchievement]);
+    await saveItem<Achievement>("achievements", newAchievement);
   };
 
-  const deleteAchievement = (achievementId: number) => {
-    setAchievements((prev) =>
-      prev.filter((achievement) => achievement.id !== achievementId)
-    );
+  const deleteAchievement = async (achievementId: number) => {
+    await deleteItem("achievements", achievementId);
   };
 
   const handleAdminLogin = () => {
