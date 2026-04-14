@@ -580,7 +580,7 @@ export default function App() {
           <div>
             <p className="hero-kicker">Sansara App</p>
             <h1 className="hero-title">Sansara </h1>
-            <h1 className="hero-title">All info about project</h1>
+            <h1 className="hero-title">Zalischyky</h1>
           </div>
 
           <div className="hero-stats">
