@@ -5,6 +5,7 @@ import TournamentsTab from "./components/TournamentsTab";
 import LeaderboardTab from "./components/LeaderboardTab";
 import AdminTab from "./components/AdminTab";
 import "./styles.css";
+import { seedFirebase } from "./firebaseSeed";
 import {
   achievementPlaceholder,
   gamesList,
@@ -30,6 +31,7 @@ import {
   syncTeamPlayers,
   writeStorage,
 } from "./utils";
+import { subscribeCollection } from "./firebaseDb";
 import StatCard from "./components/StatCard";
 
 type PlayerForm = {
@@ -118,21 +120,11 @@ const createEmptyMatchForm = (): MatchForm => ({
 });
 
 export default function App() {
-  const [players, setPlayers] = useState<Player[]>(() =>
-    readStorage("tm_players", initialPlayers)
-  );
-  const [teams, setTeams] = useState<Team[]>(() =>
-    readStorage("tm_teams", initialTeams)
-  );
-  const [tournaments, setTournaments] = useState<Tournament[]>(() =>
-    readStorage("tm_tournaments", initialTournaments)
-  );
-  const [matches, setMatches] = useState<Match[]>(() =>
-    readStorage("tm_matches", initialMatches)
-  );
-  const [achievements, setAchievements] = useState<Achievement[]>(() =>
-    readStorage("tm_achievements", initialAchievements)
-  );
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
 
   const [activeTab, setActiveTab] = useState<TabKey>("players");
 
@@ -179,6 +171,28 @@ export default function App() {
     ],
     [isAdmin]
   );
+
+  useEffect(() => {
+    const unsubPlayers = subscribeCollection<Player>("players", setPlayers);
+    const unsubTeams = subscribeCollection<Team>("teams", setTeams);
+    const unsubTournaments = subscribeCollection<Tournament>(
+      "tournaments",
+      setTournaments
+    );
+    const unsubMatches = subscribeCollection<Match>("matches", setMatches);
+    const unsubAchievements = subscribeCollection<Achievement>(
+      "achievements",
+      setAchievements
+    );
+
+    return () => {
+      unsubPlayers();
+      unsubTeams();
+      unsubTournaments();
+      unsubMatches();
+      unsubAchievements();
+    };
+  }, []);
 
   useEffect(() => writeStorage("tm_players", players), [players]);
   useEffect(() => writeStorage("tm_teams", teams), [teams]);
@@ -755,6 +769,17 @@ export default function App() {
             <p className="hero-kicker">Sansara App</p>
             <h1 className="hero-title">Sansara</h1>
             <h1 className="hero-title">Zalischyky</h1>
+            <div className="btn-row">
+              <button
+                className="secondary-btn"
+                onClick={async () => {
+                  await seedFirebase();
+                  alert("Firebase seed completed");
+                }}
+              >
+                Seed Firebase
+              </button>
+            </div>
 
             <div className="hero-auth-row">
               {isAdmin ? (
