@@ -5,7 +5,6 @@ import TournamentsTab from "./components/TournamentsTab";
 import LeaderboardTab from "./components/LeaderboardTab";
 import AdminTab from "./components/AdminTab";
 import "./styles.css";
-import { seedFirebase } from "./firebaseSeed";
 import {
   achievementPlaceholder,
   gamesList,
@@ -769,17 +768,6 @@ export default function App() {
             <p className="hero-kicker">Sansara App</p>
             <h1 className="hero-title">Sansara</h1>
             <h1 className="hero-title">Zalischyky</h1>
-            <div className="btn-row">
-              <button
-                className="secondary-btn"
-                onClick={async () => {
-                  await seedFirebase();
-                  alert("Firebase seed completed");
-                }}
-              >
-                Seed Firebase
-              </button>
-            </div>
 
             <div className="hero-auth-row">
               {isAdmin ? (
