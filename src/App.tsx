@@ -808,19 +808,26 @@ export default function App() {
                     }}
                   />
 
-                  <div className="btn-row">
-                    <button className="primary-btn" onClick={handleAdminLogin}>
-                      Enter
-                    </button>
+                  <div
+                    style={{ marginTop: 16, position: "relative", zIndex: 50 }}
+                  >
                     <button
-                      className="secondary-btn"
+                      type="button"
+                      style={{
+                        padding: "12px 18px",
+                        borderRadius: 12,
+                        border: "1px solid white",
+                        background: "black",
+                        color: "white",
+                        cursor: "pointer",
+                        pointerEvents: "auto",
+                      }}
                       onClick={() => {
-                        setShowAdminLogin(false);
-                        setAdminPassword("");
-                        setAdminError("");
+                        alert("CLICK WORKS");
+                        console.log("CLICK WORKS");
                       }}
                     >
-                      Cancel
+                      TEST FIREBASE BUTTON
                     </button>
                   </div>
 
