@@ -38,7 +38,8 @@ export default function PlayersTab({
   setSortMode,
   gamesList,
 }: Props) {
-  const getTeamName = (teamId: number | null) => {
+  const getTeamName = (teamId: number | null, customName?: string) => {
+    if (customName && customName.trim()) return customName.trim();
     if (teamId === null || teamId === 0) return "Free agent";
     return teams.find((t) => t.id === teamId)?.name || "Unknown team";
   };
@@ -317,8 +318,14 @@ export default function PlayersTab({
               ) : (
                 <div className="list-col transfer-history-list">
                   {playerTransferHistory.map((transfer) => {
-                    const fromTeamName = getTeamName(transfer.fromTeamId);
-                    const toTeamName = getTeamName(transfer.toTeamId);
+                    const fromTeamName = getTeamName(
+                      transfer.fromTeamId,
+                      transfer.fromTeamName
+                    );
+                    const toTeamName = getTeamName(
+                      transfer.toTeamId,
+                      transfer.toTeamName
+                    );
 
                     return (
                       <div

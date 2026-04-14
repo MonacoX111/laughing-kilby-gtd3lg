@@ -14,11 +14,12 @@ export type Team = {
   description: string;
 };
 
-// 🔥 NEW: Transfer
 export type Transfer = {
   id: number;
-  fromTeamId: number | null; // null = free agent
+  fromTeamId: number | null;
   toTeamId: number;
+  fromTeamName?: string;
+  toTeamName?: string;
   date: string;
   note?: string;
 };
@@ -37,8 +38,6 @@ export type Player = {
   rank: number;
   elo: number;
   bio: string;
-
-  // 🔥 NEW
   transferHistory: Transfer[];
 };
 

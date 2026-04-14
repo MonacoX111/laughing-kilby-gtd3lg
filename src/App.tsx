@@ -433,6 +433,7 @@ export default function App() {
 
         const nextTransfers = currentTransfers.map((transfer) => {
           if (transfer.id !== transferId) return transfer;
+
           return { ...transfer, ...updates };
         });
 
@@ -460,11 +461,14 @@ export default function App() {
         if (player.id !== playerId) return player;
 
         const currentTransfers = player.transferHistory ?? [];
+        const currentTeam = teams.find((team) => team.id === player.teamId);
 
         const newTransfer: Transfer = {
           id: Date.now(),
           fromTeamId: player.teamId || null,
           toTeamId: player.teamId || 0,
+          fromTeamName: currentTeam?.name || "",
+          toTeamName: currentTeam?.name || "",
           date: new Date().toISOString().slice(0, 10),
           note: "",
         };

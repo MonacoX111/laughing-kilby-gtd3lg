@@ -199,7 +199,8 @@ export default function AdminTab({
     tournaments.find((tournament) => tournament.id === tournamentId)?.title ||
     "No tournament";
 
-  const getTeamName = (teamId: number | null) => {
+  const getTeamName = (teamId: number | null, customName?: string) => {
+    if (customName && customName.trim()) return customName.trim();
     if (teamId === null || teamId === 0) return "Free agent";
     return teams.find((team) => team.id === teamId)?.name || "Unknown team";
   };
@@ -430,7 +431,7 @@ export default function AdminTab({
                     <div key={transfer.id} className="simple-card">
                       <div className="form-grid two">
                         <div className="field-block">
-                          <label className="field-label">From</label>
+                          <label className="field-label">From team</label>
                           <select
                             className="input"
                             value={transfer.fromTeamId ?? 0}
@@ -457,7 +458,27 @@ export default function AdminTab({
                         </div>
 
                         <div className="field-block">
-                          <label className="field-label">To</label>
+                          <label className="field-label">
+                            From custom name
+                          </label>
+                          <input
+                            className="input"
+                            value={transfer.fromTeamName || ""}
+                            onChange={(e) =>
+                              updatePlayerTransfer(
+                                selectedPlayerId,
+                                transfer.id,
+                                {
+                                  fromTeamName: e.target.value,
+                                }
+                              )
+                            }
+                            placeholder="Old team name if team no longer exists"
+                          />
+                        </div>
+
+                        <div className="field-block">
+                          <label className="field-label">To team</label>
                           <select
                             className="input"
                             value={transfer.toTeamId}
@@ -478,6 +499,24 @@ export default function AdminTab({
                               </option>
                             ))}
                           </select>
+                        </div>
+
+                        <div className="field-block">
+                          <label className="field-label">To custom name</label>
+                          <input
+                            className="input"
+                            value={transfer.toTeamName || ""}
+                            onChange={(e) =>
+                              updatePlayerTransfer(
+                                selectedPlayerId,
+                                transfer.id,
+                                {
+                                  toTeamName: e.target.value,
+                                }
+                              )
+                            }
+                            placeholder="New team name if team no longer exists"
+                          />
                         </div>
 
                         <div className="field-block">
@@ -519,8 +558,12 @@ export default function AdminTab({
 
                       <div className="transfer-admin-preview">
                         <span className="muted small">
-                          {getTeamName(transfer.fromTeamId)} →{" "}
-                          {getTeamName(transfer.toTeamId)}
+                          {getTeamName(
+                            transfer.fromTeamId,
+                            transfer.fromTeamName
+                          )}{" "}
+                          →{" "}
+                          {getTeamName(transfer.toTeamId, transfer.toTeamName)}
                         </span>
                       </div>
 
