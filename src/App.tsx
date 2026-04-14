@@ -630,7 +630,7 @@ export default function App() {
           <div>
             <p className="hero-kicker">Sansara App</p>
             <h1 className="hero-title">Sansara Zalischyky</h1>
-            <h1 className="hero-title">The best project in Zalischyky</h1>
+            <h1 className="hero-title"></h1>
 
             <div className="hero-auth-row">
               {isAdmin ? (
