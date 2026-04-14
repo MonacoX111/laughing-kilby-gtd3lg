@@ -1,5 +1,4 @@
-import { ChangeEvent, useEffect, useState } from "react";
-import Tabs from "./components/Tabs";
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import PlayersTab from "./components/PlayersTab";
 import TeamsTab from "./components/TeamsTab";
 import TournamentsTab from "./components/TournamentsTab";
@@ -65,6 +64,9 @@ type MatchForm = {
   date: string;
   eloApplied: boolean;
 };
+
+const ADMIN_STORAGE_KEY = "tm_admin_access";
+const ADMIN_PASSWORD = "monacoadmin";
 
 const createEmptyPlayerForm = (nextRank = 1): PlayerForm => ({
   nickname: "",
@@ -145,6 +147,13 @@ export default function App() {
   );
   const [matchForm, setMatchForm] = useState<MatchForm>(createEmptyMatchForm());
 
+  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
+    return localStorage.getItem(ADMIN_STORAGE_KEY) === "true";
+  });
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [adminPassword, setAdminPassword] = useState("");
+  const [adminError, setAdminError] = useState("");
+
   const selectedPlayer =
     players.find((player) => player.id === selectedPlayerId) || null;
   const selectedTeam = teams.find((team) => team.id === selectedTeamId) || null;
@@ -154,6 +163,17 @@ export default function App() {
   const selectedMatch =
     matches.find((match) => match.id === selectedMatchId) || null;
 
+  const visibleTabs = useMemo(
+    () => [
+      { key: "players" as TabKey, label: "Players" },
+      { key: "teams" as TabKey, label: "Teams" },
+      { key: "tournaments" as TabKey, label: "Tournaments" },
+      { key: "leaderboard" as TabKey, label: "Leaderboard" },
+      ...(isAdmin ? [{ key: "admin" as TabKey, label: "Admin" }] : []),
+    ],
+    [isAdmin]
+  );
+
   useEffect(() => writeStorage("tm_players", players), [players]);
   useEffect(() => writeStorage("tm_teams", teams), [teams]);
   useEffect(() => writeStorage("tm_tournaments", tournaments), [tournaments]);
@@ -162,6 +182,15 @@ export default function App() {
     () => writeStorage("tm_achievements", achievements),
     [achievements]
   );
+  useEffect(() => {
+    localStorage.setItem(ADMIN_STORAGE_KEY, String(isAdmin));
+  }, [isAdmin]);
+
+  useEffect(() => {
+    if (!isAdmin && activeTab === "admin") {
+      setActiveTab("players");
+    }
+  }, [isAdmin, activeTab]);
 
   useEffect(() => {
     if (players.length === 0) {
@@ -573,14 +602,95 @@ export default function App() {
     );
   };
 
+  const handleAdminLogin = () => {
+    if (adminPassword === ADMIN_PASSWORD) {
+      setIsAdmin(true);
+      setShowAdminLogin(false);
+      setAdminPassword("");
+      setAdminError("");
+      setActiveTab("admin");
+      return;
+    }
+
+    setAdminError("Wrong admin password.");
+  };
+
+  const handleAdminLogout = () => {
+    setIsAdmin(false);
+    setShowAdminLogin(false);
+    setAdminPassword("");
+    setAdminError("");
+    setActiveTab("players");
+  };
+
   return (
     <div className="page">
       <div className="container">
         <div className="hero">
           <div>
             <p className="hero-kicker">Sansara App</p>
-            <h1 className="hero-title">Sansara </h1>
-            <h1 className="hero-title">Zalischyky</h1>
+            <h1 className="hero-title">Sansara Zalischyky</h1>
+            <h1 className="hero-title">The best project in Zalischyky</h1>
+
+            <div className="hero-auth-row">
+              {isAdmin ? (
+                <>
+                  <span className="admin-badge">Admin mode enabled</span>
+                  <button className="secondary-btn" onClick={handleAdminLogout}>
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    className="primary-btn"
+                    onClick={() => {
+                      setShowAdminLogin((prev) => !prev);
+                      setAdminError("");
+                    }}
+                  >
+                    Admin login
+                  </button>
+
+                  {showAdminLogin ? (
+                    <div className="admin-login-box">
+                      <input
+                        className="input"
+                        type="password"
+                        placeholder="Admin password"
+                        value={adminPassword}
+                        onChange={(e) => {
+                          setAdminPassword(e.target.value);
+                          setAdminError("");
+                        }}
+                      />
+                      <div className="btn-row">
+                        <button
+                          className="primary-btn"
+                          onClick={handleAdminLogin}
+                        >
+                          Enter
+                        </button>
+                        <button
+                          className="secondary-btn"
+                          onClick={() => {
+                            setShowAdminLogin(false);
+                            setAdminPassword("");
+                            setAdminError("");
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+
+                      {adminError ? (
+                        <div className="admin-login-error">{adminError}</div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </>
+              )}
+            </div>
           </div>
 
           <div className="hero-stats">
@@ -594,7 +704,19 @@ export default function App() {
           </div>
         </div>
 
-        <Tabs active={activeTab} onChange={setActiveTab} />
+        <div className="tabs">
+          {visibleTabs.map((tab) => (
+            <button
+              key={tab.key}
+              className={`tab-btn ${
+                activeTab === tab.key ? "tab-btn-active" : ""
+              }`}
+              onClick={() => setActiveTab(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
         {activeTab === "players" && (
           <PlayersTab
@@ -634,7 +756,7 @@ export default function App() {
           <LeaderboardTab players={players} teams={teams} />
         )}
 
-        {activeTab === "admin" && (
+        {activeTab === "admin" && isAdmin && (
           <AdminTab
             players={players}
             teams={teams}
