@@ -12,5 +12,4 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// 🔥 Головне
 export const db = getFirestore(app);
