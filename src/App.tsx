@@ -147,9 +147,7 @@ export default function App() {
   );
   const [matchForm, setMatchForm] = useState<MatchForm>(createEmptyMatchForm());
 
-  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
-    return localStorage.getItem(ADMIN_STORAGE_KEY) === "true";
-  });
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminPassword, setAdminPassword] = useState("");
   const [adminError, setAdminError] = useState("");
@@ -182,6 +180,7 @@ export default function App() {
     () => writeStorage("tm_achievements", achievements),
     [achievements]
   );
+
   useEffect(() => {
     localStorage.setItem(ADMIN_STORAGE_KEY, String(isAdmin));
   }, [isAdmin]);
@@ -191,6 +190,25 @@ export default function App() {
       setActiveTab("players");
     }
   }, [isAdmin, activeTab]);
+
+  useEffect(() => {
+    const handleSecretShortcut = (event: KeyboardEvent) => {
+      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "l") {
+        event.preventDefault();
+        setShowAdminLogin(true);
+        setAdminError("");
+      }
+
+      if (event.key === "Escape") {
+        setShowAdminLogin(false);
+        setAdminPassword("");
+        setAdminError("");
+      }
+    };
+
+    window.addEventListener("keydown", handleSecretShortcut);
+    return () => window.removeEventListener("keydown", handleSecretShortcut);
+  }, []);
 
   useEffect(() => {
     if (players.length === 0) {
@@ -629,8 +647,8 @@ export default function App() {
         <div className="hero">
           <div>
             <p className="hero-kicker">Sansara App</p>
-            <h1 className="hero-title">Sansara Zalischyky</h1>
-            <h1 className="hero-title"></h1>
+            <h1 className="hero-title">Sansara</h1>
+            <h1 className="hero-title">Zalischyky</h1>
 
             <div className="hero-auth-row">
               {isAdmin ? (
@@ -640,56 +658,46 @@ export default function App() {
                     Logout
                   </button>
                 </>
-              ) : (
-                <>
-                  <button
-                    className="primary-btn"
-                    onClick={() => {
-                      setShowAdminLogin((prev) => !prev);
+              ) : null}
+
+              {showAdminLogin ? (
+                <div className="admin-login-box">
+                  <div className="admin-login-hint">
+                    Secret shortcut: Ctrl + Shift + A
+                  </div>
+
+                  <input
+                    className="input"
+                    type="password"
+                    placeholder="Admin password"
+                    value={adminPassword}
+                    onChange={(e) => {
+                      setAdminPassword(e.target.value);
                       setAdminError("");
                     }}
-                  >
-                    Admin login
-                  </button>
+                  />
 
-                  {showAdminLogin ? (
-                    <div className="admin-login-box">
-                      <input
-                        className="input"
-                        type="password"
-                        placeholder="Admin password"
-                        value={adminPassword}
-                        onChange={(e) => {
-                          setAdminPassword(e.target.value);
-                          setAdminError("");
-                        }}
-                      />
-                      <div className="btn-row">
-                        <button
-                          className="primary-btn"
-                          onClick={handleAdminLogin}
-                        >
-                          Enter
-                        </button>
-                        <button
-                          className="secondary-btn"
-                          onClick={() => {
-                            setShowAdminLogin(false);
-                            setAdminPassword("");
-                            setAdminError("");
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
+                  <div className="btn-row">
+                    <button className="primary-btn" onClick={handleAdminLogin}>
+                      Enter
+                    </button>
+                    <button
+                      className="secondary-btn"
+                      onClick={() => {
+                        setShowAdminLogin(false);
+                        setAdminPassword("");
+                        setAdminError("");
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
 
-                      {adminError ? (
-                        <div className="admin-login-error">{adminError}</div>
-                      ) : null}
-                    </div>
+                  {adminError ? (
+                    <div className="admin-login-error">{adminError}</div>
                   ) : null}
-                </>
-              )}
+                </div>
+              ) : null}
             </div>
           </div>
 
